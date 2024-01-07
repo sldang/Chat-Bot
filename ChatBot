@@ -1,0 +1,118 @@
+package Projects;
+
+import javax.swing.*;
+import java.awt.*;
+import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStreamReader;
+import java.io.OutputStreamWriter;
+import java.net.HttpURLConnection;
+import java.net.URL;
+
+public class ChatBot extends JFrame {
+
+    private JTextField inputField;
+    private JTextArea chatArea;
+    private final String apiKey = "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";
+    private final String model = "gpt-3.5-turbo";
+
+    ChatBot() {
+        setTitle("Chat Bot");
+        setSize(400, 300);
+        setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+        setLocationRelativeTo(null);
+
+        chatArea = new JTextArea();
+        chatArea.setEditable(false);
+        JScrollPane scrollPane = new JScrollPane(chatArea);
+
+        inputField = new JTextField();
+        inputField.setPreferredSize(new Dimension(250, 80));
+        inputField.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                sendMessage();
+            }
+        });
+
+        JButton send = new JButton("Send");
+        send.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                sendMessage();
+            }
+        });
+
+        JPanel panel = new JPanel(new BorderLayout());
+        panel.add(inputField, BorderLayout.NORTH);
+        panel.add(scrollPane, BorderLayout.CENTER);
+        panel.add(send, BorderLayout.SOUTH);
+
+        SwingUtilities.invokeLater(new Runnable() {
+            @Override
+            public void run() {
+                add(panel);
+                setVisible(true);
+            }
+        });
+    }
+
+    private void sendMessage() {
+        String inputMessage = inputField.getText();
+        appendMessage("User: " + inputMessage);
+
+        try {
+            URL url = new URL("https://api.openai.com/v1/chat/completions");
+            HttpURLConnection con = (HttpURLConnection) url.openConnection();
+            con.setRequestMethod("POST");
+            con.setRequestProperty("Authorization", "Bearer " + apiKey);
+            con.setRequestProperty("Content-Type", "application/json");
+            con.setDoOutput(true);
+
+            // Build the request body
+            String body = "{\"model\": \"" + model + "\", \"messages\": [{\"role\": \"user\", \"content\": \"" + inputMessage + "\"}]}";
+            con.setDoOutput(true);
+            OutputStreamWriter writer = new OutputStreamWriter(con.getOutputStream());
+            writer.write(body);
+            writer.flush();
+            writer.close();
+            
+            // Get the response
+            BufferedReader in = new BufferedReader(new InputStreamReader(con.getInputStream()));
+            String inputLine;
+            StringBuffer response = new StringBuffer();
+            while ((inputLine = in.readLine()) != null) {
+                response.append(inputLine);
+            }
+            in.close();
+
+            // returns the extracted contents of the response.
+            appendMessage("Assistant: " + extractContentFromResponse(response.toString()));
+
+
+        } catch (IOException e) {
+            handleException(e);
+        }
+    }
+
+    private void appendMessage(String message) {
+        chatArea.append(message + "\n");
+    }
+    
+    public static String extractContentFromResponse(String response) {
+        int startMarker = response.indexOf("content")+11; // Marker for where the content starts.
+        int endMarker = response.indexOf("\"", startMarker); // Marker for where the content ends.
+        return response.substring(startMarker, endMarker); // Returns the substring containing only the response.
+    }
+
+    private void handleException(Exception e) {
+        // Handle exceptions more gracefully, e.g., show a dialog or log the error
+        e.printStackTrace();
+    }
+
+    public static void main(String[] args) {
+        new ChatBot();
+    }
+}
